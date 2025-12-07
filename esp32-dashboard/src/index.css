@@ -1,12 +1,9 @@
-@import 'leaflet/dist/leaflet.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-  @apply min-h-screen text-slate-100;
-  background-image: radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.15), transparent 45%),
-    radial-gradient(circle at 80% 0%, rgba(16, 185, 129, 0.12), transparent 40%),
-    linear-gradient(135deg, #020617 0%, #0f172a 40%, #020617 100%);
+  @apply min-h-screen text-slate-900;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
   background-attachment: fixed;
 }
