@@ -39,27 +39,37 @@ function DeviceList({ devices, selectedId, onSelect }) {
   return (
     <div className="space-y-3">
       <h2 className="mb-5 text-sm font-bold uppercase tracking-[0.12em] text-blue-500">Device Fleet</h2>
-      {devices.map((device) => (
-        <button
-          key={device.deviceId}
-          onClick={() => onSelect(device.deviceId)}
-          className={`w-full rounded-xl border bg-white px-5 py-5 text-left shadow-[0_2px_6px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_6px_16px_rgba(0,0,0,0.08)] ${
-            selectedId === device.deviceId
-              ? 'border-blue-300 ring-2 ring-blue-100'
-              : 'border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-base font-bold text-slate-900">{device.deviceId}</span>
-            <span className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${mq2Badge(device.mq2raw)}`}>
-              {device.mq2raw ?? '–'}
-            </span>
+      {devices.length === 0 ? (
+        <div className="flex min-h-[200px] items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-12">
+          <div className="text-center">
+            <div className="mb-3 text-4xl">📡</div>
+            <p className="text-sm font-bold text-slate-700">Tidak ada device yang terdeteksi</p>
+            <p className="mt-2 text-xs font-medium text-slate-500">Pastikan ESP32 sudah menyala dan terhubung</p>
           </div>
-          <p className="mt-2 text-xs font-medium text-slate-500">
-            {device.updated ? new Date(device.updated).toLocaleTimeString() : 'No data'}
-          </p>
-        </button>
-      ))}
+        </div>
+      ) : (
+        devices.map((device) => (
+          <button
+            key={device.deviceId}
+            onClick={() => onSelect(device.deviceId)}
+            className={`w-full rounded-xl border bg-white px-5 py-5 text-left shadow-[0_2px_6px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_6px_16px_rgba(0,0,0,0.08)] ${
+              selectedId === device.deviceId
+                ? 'border-blue-300 ring-2 ring-blue-100'
+                : 'border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-base font-bold text-slate-900">{device.deviceId}</span>
+              <span className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${mq2Badge(device.mq2raw)}`}>
+                {device.mq2raw ?? '–'}
+              </span>
+            </div>
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              {device.updated ? new Date(device.updated).toLocaleTimeString() : 'No data'}
+            </p>
+          </button>
+        ))
+      )}
     </div>
   );
 }
