@@ -1,36 +1,35 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
 import { fetchDevices, fetchDeviceDetail } from './lib/api';
-
-const markerIcon = L.icon({
-  iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).toString(),
-  iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).toString(),
-  shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).toString(),
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-});
-L.Marker.prototype.options.icon = markerIcon;
 
 const DEFAULT_POSITION = [-6.2, 106.816];
 
 const mq2Badge = (value) => {
-  if (value == null) return 'bg-slate-800 text-slate-300';
-  if (value >= 2500) return 'bg-rose-500/20 text-rose-300 border border-rose-400/40';
-  if (value >= 1500) return 'bg-amber-500/20 text-amber-200 border border-amber-400/30';
-  return 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30';
+  if (value == null) return 'bg-slate-100 text-slate-700 border-slate-200';
+  if (value >= 2500) return 'bg-red-100 text-red-800 border-red-300';
+  if (value >= 1500) return 'bg-amber-100 text-amber-800 border-amber-300';
+  return 'bg-emerald-100 text-emerald-800 border-emerald-300';
 };
 
-function SensorCard({ title, value, suffix = '', highlight = false }) {
+function SensorCard({ title, value, suffix = '', highlight = false, icon }) {
   return (
-    <div className={`group relative overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-900/60 p-5 shadow-[0_20px_45px_-20px_rgba(15,23,42,0.9)] transition hover:border-emerald-400/70 hover:shadow-emerald-500/20 ${highlight ? 'border-emerald-400/70 shadow-emerald-500/20' : ''}`}>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-sky-500/10 opacity-0 transition group-hover:opacity-100" />
-      <div className="relative">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-400">{title}</h3>
-        <p className="mt-3 text-3xl font-bold text-slate-50 drop-shadow">
-          {value ?? '–'}{value != null ? suffix : ''}
-        </p>
+    <div
+      className={`relative overflow-hidden rounded-3xl border bg-white p-8 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] ${
+        highlight ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-200'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">{title}</p>
+          <p className="mt-4 text-5xl font-extrabold tracking-tight text-slate-900">
+            {value ?? '–'}
+            {value != null && <span className="ml-2 text-3xl font-semibold text-slate-500">{suffix}</span>}
+          </p>
+        </div>
+        {icon && (
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 text-4xl shadow-inner">
+            {icon}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -39,78 +38,94 @@ function SensorCard({ title, value, suffix = '', highlight = false }) {
 function DeviceList({ devices, selectedId, onSelect }) {
   return (
     <div className="space-y-3">
+      <h2 className="mb-5 text-sm font-bold uppercase tracking-[0.12em] text-blue-500">Device Fleet</h2>
       {devices.map((device) => (
         <button
           key={device.deviceId}
           onClick={() => onSelect(device.deviceId)}
-          className={`w-full rounded-2xl border px-5 py-4 text-left transition hover:border-emerald-400/70 hover:bg-slate-900/50 hover:shadow-lg hover:shadow-emerald-500/10 ${
+          className={`w-full rounded-xl border bg-white px-5 py-5 text-left shadow-[0_2px_6px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_6px_16px_rgba(0,0,0,0.08)] ${
             selectedId === device.deviceId
-              ? 'border-emerald-500 bg-slate-900/70 shadow-lg shadow-emerald-500/20'
-              : 'border-slate-700/70 bg-slate-900/40'
+              ? 'border-blue-300 ring-2 ring-blue-100'
+              : 'border-slate-200 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold text-slate-100">{device.deviceId}</span>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${mq2Badge(device.mq2raw)}`}>
-              MQ-2: {device.mq2raw ?? '–'}
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-base font-bold text-slate-900">{device.deviceId}</span>
+            <span className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${mq2Badge(device.mq2raw)}`}>
+              {device.mq2raw ?? '–'}
             </span>
           </div>
-          <p className="mt-3 text-xs text-slate-400">Updated • {device.updated ? new Date(device.updated).toLocaleTimeString() : '–'}</p>
+          <p className="mt-2 text-xs font-medium text-slate-500">
+            {device.updated ? new Date(device.updated).toLocaleTimeString() : 'No data'}
+          </p>
         </button>
       ))}
     </div>
   );
 }
 
+function StaticMap({ latitude, longitude, hasFix }) {
+  const lat = hasFix ? latitude : DEFAULT_POSITION[0];
+  const lng = hasFix ? longitude : DEFAULT_POSITION[1];
+  const zoom = hasFix ? 14 : 3;
+
+  // OpenStreetMap Static Map API via StaticMapLite or direct tile approach
+  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`;
+
+  return (
+    <iframe
+      src={mapUrl}
+      className="h-full w-full border-0"
+      title="GPS Location Map"
+      allowFullScreen
+    />
+  );
+}
+
 function DeviceDetail({ device }) {
   if (!device) {
     return (
-      <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/20">
-        <p className="text-slate-500">Select a device to view sensor data.</p>
+      <div className="flex h-full min-h-[400px] items-center justify-center rounded-3xl border-2 border-dashed border-slate-300 bg-slate-50">
+        <p className="text-sm font-semibold text-slate-500">Select a device to view sensor data</p>
       </div>
     );
   }
 
   const { temp, humidity, mq2raw, mq2voltage, flame, gps } = device;
   const hasFix = gps?.status === 'fix' && gps.latitude != null && gps.longitude != null;
-  const mapCenter = hasFix ? [gps.latitude, gps.longitude] : DEFAULT_POSITION;
-  const zoom = hasFix ? 14 : 3;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      <div className="space-y-4 lg:col-span-3">
-        <SensorCard title="Temperature" value={temp} suffix=" °C" />
-        <SensorCard title="Humidity" value={humidity} suffix=" %" />
-        <SensorCard title="MQ-2 Raw" value={mq2raw} highlight />
-        <SensorCard title="MQ-2 Voltage" value={mq2voltage} suffix=" V" />
-        <SensorCard title="Flame Detected" value={flame ? 'YES' : 'NO'} highlight={Boolean(flame)} />
-      </div>
-      <div className="overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-900/60 backdrop-blur lg:col-span-2">
-        <div className="border-b border-slate-700/60 bg-slate-900/70 px-5 py-4">
-          <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">GPS Location</h3>
-          <p className="mt-1 text-sm text-slate-300">{gps?.status ?? 'no-fix'}</p>
+    <div className="space-y-8">
+      <div>
+        <h2 className="mb-6 text-sm font-bold uppercase tracking-[0.12em] text-slate-700">Sensor Readings</h2>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <SensorCard title="Temperature" value={temp} suffix="°C" icon="🌡️" />
+          <SensorCard title="Humidity" value={humidity} suffix="%" icon="💧" />
+          <SensorCard title="Gas Level" value={mq2raw} highlight icon="⚠️" />
+          <SensorCard title="Gas Voltage" value={mq2voltage} suffix="V" icon="⚡" />
+          <SensorCard title="Flame Status" value={flame ? 'ALERT' : 'Safe'} highlight={Boolean(flame)} icon="🔥" />
+          <SensorCard
+            title="GPS Lock"
+            value={gps?.status === 'fix' ? 'Active' : 'Searching'}
+            highlight={gps?.status === 'fix'}
+            icon="🛰️"
+          />
         </div>
-        <div className="h-80">
-          <MapContainer
-            center={mapCenter}
-            zoom={zoom}
-            scrollWheelZoom
-            style={{ height: '100%', width: '100%' }}
-            className="leaflet-map"
-          >
-            <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {hasFix && (
-              <Marker position={[gps.latitude, gps.longitude]}>
-                <Popup>
-                  <div className="space-y-1 text-xs">
-                    <p className="font-semibold">{device.deviceId}</p>
-                    <p>Lat: {gps.latitude.toFixed(6)}</p>
-                    <p>Lng: {gps.longitude.toFixed(6)}</p>
-                  </div>
-                </Popup>
-              </Marker>
-            )}
-          </MapContainer>
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-8 py-5">
+          <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-slate-700">GPS Location</h3>
+          <p className="mt-1 font-mono text-sm font-medium text-slate-600">
+            {hasFix ? `${gps.latitude.toFixed(6)}, ${gps.longitude.toFixed(6)}` : 'Waiting for satellite fix…'}
+          </p>
+        </div>
+        <div className="h-[420px] bg-slate-100">
+          <StaticMap
+            latitude={gps?.latitude}
+            longitude={gps?.longitude}
+            hasFix={hasFix}
+          />
         </div>
       </div>
     </div>
@@ -183,39 +198,42 @@ export default function App() {
   }, [devices]);
 
   return (
-    <div className="relative mx-auto max-w-7xl px-6 py-12">
-      <div className="absolute inset-0 -z-10 rounded-3xl border border-slate-700/40 bg-slate-900/40 shadow-[0_40px_80px_-40px_rgba(14,165,233,0.45)] blur-3xl" />
-      <header className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.5em] text-slate-400">Realtime Fleet Monitor</p>
-          <h1 className="mt-2 text-3xl font-bold text-emerald-400 sm:text-4xl">ESP32 Environmental Dashboard</h1>
-          <p className="mt-3 max-w-xl text-sm text-slate-300">
-            Devices are sorted by MQ-2 gas intensity so anomalies surface instantly. Choose a node to dive into its sensors and live location.
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 px-6 py-10">
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-12">
+          <h1 className="mb-4 text-5xl font-black tracking-tight text-slate-900 sm:text-6xl">
+            ESP32 Fleet Dashboard
+          </h1>
+          <p className="max-w-2xl text-base font-medium leading-relaxed text-slate-600">
+            Real-time sensor telemetry from distributed nodes. Devices ranked by gas concentration for instant anomaly
+            detection.
           </p>
-        </div>
-        <div className="inline-flex items-center gap-3 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200">
-          {devices.length} active
-        </div>
-      </header>
+        </header>
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-500/60 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {error}
-        </div>
-      )}
+        {error && (
+          <div className="mb-8 rounded-2xl border border-red-300 bg-red-50 px-6 py-4 text-sm font-semibold text-red-800 shadow-sm">
+            ⚠️ {error}
+          </div>
+        )}
 
-      {loading ? (
-        <div className="flex h-40 items-center justify-center text-slate-400">Loading devices…</div>
-      ) : (
-        <div className="grid gap-10 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="rounded-3xl border border-slate-700/50 bg-slate-900/50 p-6 shadow-[0_30px_60px_-40px_rgba(14,165,233,0.45)] backdrop-blur">
-            <DeviceList devices={sortedDevices} selectedId={selectedId} onSelect={setSelectedId} />
-          </aside>
-          <main className="rounded-3xl border border-slate-700/50 bg-slate-900/50 p-6 shadow-[0_30px_60px_-40px_rgba(16,185,129,0.45)] backdrop-blur">
-            <DeviceDetail device={activeDevice} />
-          </main>
-        </div>
-      )}
+        {loading ? (
+          <div className="flex h-80 items-center justify-center">
+            <div className="flex flex-col items-center gap-5">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+              <p className="text-sm font-bold uppercase tracking-[0.12em] text-slate-600">Connecting to fleet…</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)]">
+            <aside className="rounded-3xl border border-slate-200 bg-white p-7 shadow-[0_4px_16px_rgba(0,0,0,0.04)]">
+              <DeviceList devices={sortedDevices} selectedId={selectedId} onSelect={setSelectedId} />
+            </aside>
+            <main>
+              <DeviceDetail device={activeDevice} />
+            </main>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
