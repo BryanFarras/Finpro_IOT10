@@ -5,23 +5,22 @@
 
 /*
   ESP32 pin mapping
-  - DHT11 data    -> GPIO12 (add 10k pull-up to 3.3V)
-  - MQ-2 analog   -> GPIO34 (ADC1_CH6, ensure analog voltage <= 3.3V via divider)
+  - DHT11 data    -> GPIO12
+  - MQ-2 analog   -> GPIO34
   - IR flame DO   -> GPIO13 (LOW = flame detected)
-  - GPS TX (TXD)  -> GPIO16 (ESP32 RX2)
-  - GPS RX (RXD)  -> GPIO17 (ESP32 TX2)
-   Share a common ground across all modules.
-*/  
+  - GPS TX        -> GPIO16 (ESP32 RX2)
+  - GPS RX        -> GPIO17 (ESP32 TX2)
+*/
 
-const char* ssid = "Oii"; 
-const char* password = "abshar27";
+const char* ssid = "Asususususus"; 
+const char* password = "hahahaha";
 const char* mqtt_server = "broker.emqx.io";
-const char* DEVICE_ID = "esp32-node-1";   // ganti per board
+const char* DEVICE_ID = "esp32-node-1";
 const char* MQTT_BASE_TOPIC = "wokwi/project";
 
-const int DHT_PIN = 12;
-const int MQ2_PIN = 34;
-const int FLAME_PIN = 13;
+const int DHT_PIN = 2;
+const int MQ2_PIN = 4;
+const int FLAME_PIN = 5;
 const int GPS_RX_PIN = 16;
 const int GPS_TX_PIN = 17;
 
@@ -32,7 +31,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 unsigned long lastSensorRead = 0;
-const long sensorInterval = 5000; 
+const long sensorInterval = 5000;
 
 TinyGPSPlus gps;
 HardwareSerial SerialGPS(1);
@@ -61,13 +60,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 String buildTopic(const char* subTopic) {
-  String topic = String(MQTT_BASE_TOPIC) + "/" + DEVICE_ID + "/" + subTopic;
-  return topic;
+  return String(MQTT_BASE_TOPIC) + "/" + DEVICE_ID + "/" + subTopic;
 }
 
 void publishText(const char* subTopic, const char* payload) {
-  String topic = buildTopic(subTopic);
-  client.publish(topic.c_str(), payload);
+  client.publish(buildTopic(subTopic).c_str(), payload);
 }
 
 void publishFloat(const char* subTopic, double value, uint8_t decimals) {
@@ -93,10 +90,9 @@ void reconnect() {
     clientId += DEVICE_ID;
     clientId += "-";
     clientId += String(random(0xffff), HEX);
-    
+
     if (client.connect(clientId.c_str())) {
       Serial.println("connected");
-      // Tidak ada topik kontrol yang diperlukan
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -113,55 +109,58 @@ void processGPSStream() {
 }
 
 void readAndPublishDHT() {
-  // float h = dht.readHumidity();
-  // float t = dht.readTemperature();
-  const float h = 55.0f;
-  const float t = 27.5f;
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+
+  if (isnan(h) || isnan(t)) {
+    Serial.println("DHT11 Error Reading");
+    return;
+  }
 
   Serial.print("Suhu: "); Serial.print(t);
-  Serial.print(" *C, Kelembapan: "); Serial.println(h);
+  Serial.print(" °C, Kelembapan: "); Serial.println(h);
+
   publishFloat("temp", t, 1);
   publishFloat("humidity", h, 1);
 }
 
 void readAndPublishMQ2() {
-  // int gasRaw = analogRead(MQ2_PIN);
-  const int gasRaw = 1024;
-  // float gasVoltage = (static_cast<float>(gasRaw) / 4095.0f) * 3.3f;
-  const float gasVoltage = 1.65f;
+  int gasRaw = analogRead(MQ2_PIN);
+  float gasVoltage = (gasRaw / 4095.0f) * 3.3f;
 
   Serial.print("MQ-2 raw: "); Serial.print(gasRaw);
   Serial.print(" (~"); Serial.print(gasVoltage, 2); Serial.println(" V)");
+
   publishInt("mq2/raw", gasRaw);
   publishFloat("mq2/voltage", gasVoltage, 2);
 }
 
 void readAndPublishFlame() {
-  // bool flameDetected = (digitalRead(FLAME_PIN) == LOW);
-  const bool flameDetected = false;
+  bool flameDetected = (digitalRead(FLAME_PIN) == LOW);
 
   Serial.print("Flame detected: ");
-  Serial.println(flameDetected ? "YES" : "NO");
+  Serial.println(flameDetected ? "YES (🔥 FIRE!)" : "NO");
+
   publishBool("flame", flameDetected);
 }
 
 void readAndPublishGPS() {
-  // processGPSStream();
-  // bool gpsFix = gps.location.isValid();
-  const bool gpsFix = true;
+  processGPSStream();
+
+  bool gpsFix = gps.location.isValid();
   publishText("gps/status", gpsFix ? "fix" : "no-fix");
+
   if (!gpsFix) {
     Serial.println("GPS fix not available.");
     return;
   }
 
-  // double latitude = gps.location.lat();
-  // double longitude = gps.location.lng();
-  const double latitude = -6.200000;
-  const double longitude = 106.816666;
+  double latitude = gps.location.lat();
+  double longitude = gps.location.lng();
 
   Serial.print("GPS lat: "); Serial.print(latitude, 6);
   Serial.print(", lon: "); Serial.println(longitude, 6);
+
   publishFloat("gps/latitude", latitude, 6);
   publishFloat("gps/longitude", longitude, 6);
 }
@@ -175,16 +174,14 @@ void readSensorsAndPublish() {
 
 void setup() {
   Serial.begin(115200);
-  
 
   pinMode(MQ2_PIN, INPUT);
   pinMode(FLAME_PIN, INPUT);
-  
-  dht.begin();
 
+  dht.begin();
   SerialGPS.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
   Serial.println("GPS serial initialized");
-  
+
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -194,7 +191,7 @@ void loop() {
   if (!client.connected()) {
     reconnect();
   }
-  client.loop(); 
+  client.loop();
   processGPSStream();
 
   unsigned long currentMillis = millis();
