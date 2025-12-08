@@ -10,6 +10,7 @@
   - IR flame DO   -> GPIO13 (LOW = flame detected)
   - GPS TX (TXD)  -> GPIO16 (ESP32 RX2)
   - GPS RX (RXD)  -> GPIO17 (ESP32 TX2)
+  - Water Pump    -> GPIO25 (HIGH = pump ON)
    Share a common ground across all modules.
 */  
 
@@ -24,6 +25,7 @@ const int MQ2_PIN = 34;
 const int FLAME_PIN = 13;
 const int GPS_RX_PIN = 16;
 const int GPS_TX_PIN = 17;
+const int PUMP_PIN = 25;  
 
 #define DHT_TYPE DHT11
 DHT dht(DHT_PIN, DHT_TYPE);
@@ -32,10 +34,17 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 unsigned long lastSensorRead = 0;
-const long sensorInterval = 5000; 
+const long sensorInterval = 5000;
+
+
+bool pumpActive = false;
+unsigned long pumpStartTime = 0;
+const long pumpDuration = 10000;  
 
 TinyGPSPlus gps;
 HardwareSerial SerialGPS(1);
+
+const bool PUMP_ACTIVE_LOW = true; // set true jika modul aktif saat pin = LOW
 
 void setup_wifi() {
   delay(10);
@@ -143,24 +152,45 @@ void readAndPublishFlame() {
   Serial.print("Flame detected: ");
   Serial.println(flameDetected ? "YES" : "NO");
   publishBool("flame", flameDetected);
+  
+  if (flameDetected && !pumpActive) {
+    activatePump();
+  }
 }
 
 void readAndPublishGPS() {
-  processGPSStream();
-  bool gpsFix = gps.location.isValid();
+  // processGPSStream();
+  // bool gpsFix = gps.location.isValid();
+  const bool gpsFix = true;
   publishText("gps/status", gpsFix ? "fix" : "no-fix");
   if (!gpsFix) {
     Serial.println("GPS fix not available.");
     return;
   }
+}
 
-  double latitude = gps.location.lat();
-  double longitude = gps.location.lng();
+void activatePump() {
+  pumpActive = true;
+  pumpStartTime = millis();
+  digitalWrite(PUMP_PIN, PUMP_ACTIVE_LOW ? LOW : HIGH);
+  Serial.println("FLAME DETECTED! Water pump activated.");
+  publishBool("pump", true);
+}
 
-  Serial.print("GPS lat: "); Serial.print(latitude, 6);
-  Serial.print(", lon: "); Serial.println(longitude, 6);
-  publishFloat("gps/latitude", latitude, 6);
-  publishFloat("gps/longitude", longitude, 6);
+void deactivatePump() {
+  pumpActive = false;
+  digitalWrite(PUMP_PIN, PUMP_ACTIVE_LOW ? HIGH : LOW);
+  Serial.println("✓ Pump deactivated.");
+  publishBool("pump", false);
+}
+
+void checkAndControlPump() {
+  if (pumpActive) {
+    unsigned long elapsedTime = millis() - pumpStartTime;
+    if (elapsedTime >= pumpDuration) {
+      deactivatePump();
+    }
+  }
 }
 
 void readSensorsAndPublish() {
@@ -172,10 +202,11 @@ void readSensorsAndPublish() {
 
 void setup() {
   Serial.begin(115200);
-  
 
   pinMode(MQ2_PIN, INPUT);
   pinMode(FLAME_PIN, INPUT);
+  pinMode(PUMP_PIN, OUTPUT);
+  digitalWrite(PUMP_PIN, LOW);  
   
   dht.begin();
 
@@ -193,6 +224,8 @@ void loop() {
   }
   client.loop(); 
   processGPSStream();
+  
+  checkAndControlPump();
 
   unsigned long currentMillis = millis();
   if (currentMillis - lastSensorRead >= sensorInterval) {

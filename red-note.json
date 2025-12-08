@@ -1,210 +1,206 @@
 [
-  {
-    "id": "4a5ce7df6fa6db4f",
-    "type": "tab",
-    "label": "ESP32 API",
-    "disabled": false,
-    "info": "Aggregates MQTT payloads and exposes REST endpoints."
-  },
-  {
-    "id": "1d8f4e2f7e8a0a38",
-    "type": "mqtt-broker",
-    "name": "EMQX Public Broker",
-    "broker": "broker.emqx.io",
-    "port": "1883",
-    "tls": "",
-    "clientid": "",
-    "usetls": false,
-    "protocolVersion": "4",
-    "keepalive": "60",
-    "cleansession": true,
-    "birthTopic": "",
-    "birthQos": "0",
-    "birthRetain": "false",
-    "birthPayload": "",
-    "closeTopic": "",
-    "closePayload": "",
-    "closeQos": "0",
-    "closeRetain": "false",
-    "willTopic": "",
-    "willQos": "0",
-    "willRetain": "false",
-    "willPayload": ""
-  },
-  {
-    "id": "79d225381661160a",
-    "type": "mqtt in",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "All ESP Topics",
-    "topic": "wokwi/project/#",
-    "qos": "0",
-    "datatype": "auto",
-    "broker": "1d8f4e2f7e8a0a38",
-    "nl": false,
-    "rap": true,
-    "rh": 0,
-    "x": 140,
-    "y": 80,
-    "wires": [
-      [
-        "b99c45d994f51fef"
-      ]
-    ]
-  },
-  {
-    "id": "b99c45d994f51fef",
-    "type": "function",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "Store Latest State",
-    "func": "const parts = msg.topic.split('/');\nif (parts.length < 4) {\n    return null;\n}\nconst device = parts[2];\nconst metric = parts.slice(3).join('/');\nlet state = flow.get('deviceState') || {};\nconst entry = state[device] || {\n    device,\n    temp: null,\n    humidity: null,\n    mq2raw: null,\n    mq2voltage: null,\n    flame: null,\n    gpsStatus: null,\n    latitude: null,\n    longitude: null,\n    updated: null\n};\nconst value = msg.payload.toString();\nswitch (metric) {\n    case 'temp':\n        entry.temp = Number(value);\n        break;\n    case 'humidity':\n        entry.humidity = Number(value);\n        break;\n    case 'mq2/raw':\n        entry.mq2raw = Number(value);\n        break;\n    case 'mq2/voltage':\n        entry.mq2voltage = Number(value);\n        break;\n    case 'flame':\n        entry.flame = value === '1' || value === 'true' || value === true;\n        break;\n    case 'gps/status':\n        entry.gpsStatus = value;\n        break;\n    case 'gps/latitude':\n        entry.latitude = Number(value);\n        break;\n    case 'gps/longitude':\n        entry.longitude = Number(value);\n        break;\n    default:\n        break;\n}\nentry.updated = new Date().toISOString();\nstate[device] = entry;\nflow.set('deviceState', state);\nreturn null;",
-    "outputs": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 390,
-    "y": 80,
-    "wires": []
-  },
-  {
-    "id": "c0a7ca5871b2396d",
-    "type": "http in",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "GET /api/devices",
-    "url": "/api/devices",
-    "method": "get",
-    "upload": false,
-    "swaggerDoc": "",
-    "x": 130,
-    "y": 160,
-    "wires": [
-      [
-        "9e8b4337feb9e9b2"
-      ]
-    ]
-  },
-  {
-    "id": "9e8b4337feb9e9b2",
-    "type": "function",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "Build Device List",
-    "func": "const state = flow.get('deviceState') || {};\nconst devices = Object.values(state)\n    .map(d => ({\n        deviceId: d.device,\n        temp: d.temp,\n        humidity: d.humidity,\n        mq2raw: d.mq2raw,\n        mq2voltage: d.mq2voltage,\n        flame: d.flame,\n        gps: {\n            status: d.gpsStatus,\n            latitude: d.latitude,\n            longitude: d.longitude\n        },\n        updated: d.updated\n    }))\n    .sort((a, b) => (b.mq2raw ?? -Infinity) - (a.mq2raw ?? -Infinity));\nmsg.headers = {\n    'Content-Type': 'application/json',\n    'Access-Control-Allow-Origin': '*'\n};\nmsg.payload = { devices };\nreturn msg;",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 380,
-    "y": 160,
-    "wires": [
-      [
-        "fa0b95a47f38a7c5"
-      ]
-    ]
-  },
-  {
-    "id": "fa0b95a47f38a7c5",
-    "type": "http response",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "",
-    "statusCode": "",
-    "headers": {},
-    "x": 630,
-    "y": 160,
-    "wires": []
-  },
-  {
-    "id": "477a5fc7c6b22dff",
-    "type": "http in",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "GET /api/devices/:id",
-    "url": "/api/devices/:deviceId",
-    "method": "get",
-    "upload": false,
-    "swaggerDoc": "",
-    "x": 150,
-    "y": 220,
-    "wires": [
-      [
-        "ca60eead75a54c13"
-      ]
-    ]
-  },
-  {
-    "id": "ca60eead75a54c13",
-    "type": "function",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "Build Device Detail",
-    "func": "const { deviceId } = msg.req.params;\nconst state = flow.get('deviceState') || {};\nconst d = state[deviceId];\nmsg.headers = {\n    'Content-Type': 'application/json',\n    'Access-Control-Allow-Origin': '*'\n};\nif (!d) {\n    msg.statusCode = 404;\n    msg.payload = { error: `Device ${deviceId} not found` };\n    return msg;\n}\nmsg.payload = {\n    deviceId: d.device,\n    temp: d.temp,\n    humidity: d.humidity,\n    mq2raw: d.mq2raw,\n    mq2voltage: d.mq2voltage,\n    flame: d.flame,\n    gps: {\n        status: d.gpsStatus,\n        latitude: d.latitude,\n        longitude: d.longitude\n    },\n    updated: d.updated\n};\nreturn msg;",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 400,
-    "y": 220,
-    "wires": [
-      [
-        "5c6bbf2f6b1a7d23"
-      ]
-    ]
-  },
-  {
-    "id": "5c6bbf2f6b1a7d23",
-    "type": "http response",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "",
-    "statusCode": "",
-    "headers": {},
-    "x": 640,
-    "y": 220,
-    "wires": []
-  },
-  {
-    "id": "a1fc3dd861f3ad33",
-    "type": "http in",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "OPTIONS /api/* (CORS)",
-    "url": "/api/*",
-    "method": "options",
-    "upload": false,
-    "swaggerDoc": "",
-    "x": 160,
-    "y": 280,
-    "wires": [
-      [
-        "9006570d3f5854a0"
-      ]
-    ]
-  },
-  {
-    "id": "9006570d3f5854a0",
-    "type": "function",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "CORS Preflight",
-    "func": "msg.headers = {\n    'Access-Control-Allow-Origin': '*',\n    'Access-Control-Allow-Methods': 'GET, OPTIONS',\n    'Access-Control-Allow-Headers': 'Content-Type'\n};\nmsg.statusCode = 204;\nmsg.payload = '';\nreturn msg;",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 410,
-    "y": 280,
-    "wires": [
-      [
-        "40a69e5b0afce0a3"
-      ]
-    ]
-  },
-  {
-    "id": "40a69e5b0afce0a3",
-    "type": "http response",
-    "z": "4a5ce7df6fa6db4f",
-    "name": "",
-    "statusCode": "",
-    "headers": {},
-    "x": 640,
-    "y": 280,
-    "wires": []
-  }
+    {
+        "id": "79d225381661160a",
+        "type": "mqtt in",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "All ESP Topics",
+        "topic": "wokwi/project/#",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "1d8f4e2f7e8a0a38",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 80,
+        "wires": [
+            [
+                "b99c45d994f51fef"
+            ]
+        ]
+    },
+    {
+        "id": "b99c45d994f51fef",
+        "type": "function",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "Store Latest State",
+        "func": "const parts = msg.topic.split('/');\nif (parts.length < 4) {\n    return null;\n}\nconst device = parts[2];\nconst metric = parts.slice(3).join('/');\nlet state = flow.get('deviceState') || {};\nconst entry = state[device] || {\n    device,\n    temp: null,\n    humidity: null,\n    mq2raw: null,\n    mq2voltage: null,\n    flame: null,\n    gpsStatus: null,\n    latitude: null,\n    longitude: null,\n    updated: null\n};\nconst value = msg.payload.toString();\nswitch (metric) {\n    case 'temp':\n        entry.temp = Number(value);\n        break;\n    case 'humidity':\n        entry.humidity = Number(value);\n        break;\n    case 'mq2/raw':\n        entry.mq2raw = Number(value);\n        break;\n    case 'mq2/voltage':\n        entry.mq2voltage = Number(value);\n        break;\n    case 'flame':\n        entry.flame = value === '1' || value === 'true' || value === true;\n        break;\n    case 'gps/status':\n        entry.gpsStatus = value;\n        break;\n    case 'gps/latitude':\n        entry.latitude = Number(value);\n        break;\n    case 'gps/longitude':\n        entry.longitude = Number(value);\n        break;\n    default:\n        break;\n}\nentry.updated = new Date().toISOString();\nstate[device] = entry;\nflow.set('deviceState', state);\nreturn null;",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 390,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "c0a7ca5871b2396d",
+        "type": "http in",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "GET /api/devices",
+        "url": "/api/devices",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 130,
+        "y": 160,
+        "wires": [
+            [
+                "9e8b4337feb9e9b2"
+            ]
+        ]
+    },
+    {
+        "id": "9e8b4337feb9e9b2",
+        "type": "function",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "Build Device List",
+        "func": "const state = flow.get('deviceState') || {};\nconst now = Date.now();\nconst TIMEOUT_MS = 30000; // 30 seconds\n\nconst devices = Object.values(state)\n    .map(d => {\n        const timeSinceUpdate = now - Date.parse(d.updated);\n        const isOnline = timeSinceUpdate < TIMEOUT_MS;\n        return {\n            deviceId: d.device,\n            temp: d.temp,\n            humidity: d.humidity,\n            mq2raw: d.mq2raw,\n            mq2voltage: d.mq2voltage,\n            flame: d.flame,\n            gps: {\n                status: d.gpsStatus,\n                latitude: d.latitude,\n                longitude: d.longitude\n            },\n            updated: d.updated,\n            online: isOnline\n        };\n    })\n    .filter(d => d.online) // Only return online devices\n    .sort((a, b) => (b.mq2raw || 0) - (a.mq2raw || 0));\n    msg.headers = {\n    'Content-Type': 'application/json',\n    'Access-Control-Allow-Origin': '*'\n};\nmsg.payload = { devices };\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 160,
+        "wires": [
+            [
+                "fa0b95a47f38a7c5"
+            ]
+        ]
+    },
+    {
+        "id": "fa0b95a47f38a7c5",
+        "type": "http response",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 630,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "477a5fc7c6b22dff",
+        "type": "http in",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "GET /api/devices/:id",
+        "url": "/api/devices/:deviceId",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 150,
+        "y": 220,
+        "wires": [
+            [
+                "ca60eead75a54c13"
+            ]
+        ]
+    },
+    {
+        "id": "ca60eead75a54c13",
+        "type": "function",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "Build Device Detail",
+        "func": "const now = Date.now();\nconst TIMEOUT_MS = 30000; // 30 detik\n\n// Ambil deviceId dengan aman (msg.req mungkin tidak ada tergantung node)\nconst deviceId = (msg.req && msg.req.params && msg.req.params.deviceId) || msg.params && msg.params.deviceId || msg.deviceId;\n\nconst state = flow.get('deviceState') || {};\nconst d = state[deviceId];\n\nmsg.headers = {\n    'Content-Type': 'application/json',\n    'Access-Control-Allow-Origin': '*'\n};\n\nif (!d) {\n    msg.statusCode = 404;\n    msg.payload = { error: `Device ${deviceId} not found` }; // gunakan backtick untuk template string\n    return msg;\n}\n\n// pastikan waktu ter-update valid\nconst updatedTime = Date.parse(d.updated);\nif (isNaN(updatedTime)) {\n    msg.statusCode = 500;\n    msg.payload = { error: `Invalid updated time for device ${deviceId}` };\n    return msg;\n}\n\nconst timeSinceUpdate = now - updatedTime;\nconst isOnline = timeSinceUpdate < TIMEOUT_MS;\n\nif (!isOnline) {\n    msg.statusCode = 404;\n    msg.payload = { error: `Device ${deviceId} is offline` };\n    return msg;\n}\n\nmsg.statusCode = 200;\nmsg.payload = {\n    deviceId: d.device || deviceId,\n    temp: d.temp,\n    humidity: d.humidity,\n    mq2raw: d.mq2raw,\n    mq2voltage: d.mq2voltage,\n    flame: d.flame,\n    gps: {\n        status: d.gpsStatus,\n        latitude: d.latitude,\n        longitude: d.longitude\n    },\n    updated: d.updated,\n    online: isOnline\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 220,
+        "wires": [
+            [
+                "5c6bbf2f6b1a7d23"
+            ]
+        ]
+    },
+    {
+        "id": "5c6bbf2f6b1a7d23",
+        "type": "http response",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 640,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "a1fc3dd861f3ad33",
+        "type": "http in",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "OPTIONS /api/* (CORS)",
+        "url": "/api/*",
+        "method": "options",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 160,
+        "y": 280,
+        "wires": [
+            [
+                "9006570d3f5854a0"
+            ]
+        ]
+    },
+    {
+        "id": "9006570d3f5854a0",
+        "type": "function",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "CORS Preflight",
+        "func": "msg.headers = {\n    'Access-Control-Allow-Origin': '*',\n    'Access-Control-Allow-Methods': 'GET, OPTIONS',\n    'Access-Control-Allow-Headers': 'Content-Type'\n};\nmsg.statusCode = 204;\nmsg.payload = '';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 280,
+        "wires": [
+            [
+                "40a69e5b0afce0a3"
+            ]
+        ]
+    },
+    {
+        "id": "40a69e5b0afce0a3",
+        "type": "http response",
+        "z": "4a5ce7df6fa6db4f",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 640,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "1d8f4e2f7e8a0a38",
+        "type": "mqtt-broker",
+        "name": "EMQX Public Broker",
+        "broker": "broker.emqx.io",
+        "port": "1883",
+        "tls": "",
+        "clientid": "",
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": ""
+    }
 ]

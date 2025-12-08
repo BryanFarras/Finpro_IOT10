@@ -48,27 +48,38 @@ function DeviceList({ devices, selectedId, onSelect }) {
           </div>
         </div>
       ) : (
-        devices.map((device) => (
-          <button
-            key={device.deviceId}
-            onClick={() => onSelect(device.deviceId)}
-            className={`w-full rounded-xl border bg-white px-5 py-5 text-left shadow-[0_2px_6px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_6px_16px_rgba(0,0,0,0.08)] ${
-              selectedId === device.deviceId
-                ? 'border-blue-300 ring-2 ring-blue-100'
-                : 'border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-base font-bold text-slate-900">{device.deviceId}</span>
-              <span className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${mq2Badge(device.mq2raw)}`}>
-                {device.mq2raw ?? '–'}
-              </span>
-            </div>
-            <p className="mt-2 text-xs font-medium text-slate-500">
-              {device.updated ? new Date(device.updated).toLocaleTimeString() : 'No data'}
-            </p>
-          </button>
-        ))
+        devices.map((device) => {
+          const mq2 = device.mq2raw ?? -Infinity;
+          const isGasCritical = mq2 > 2100; // threshold baru: 2100
+          const isFlameAlert = Boolean(device.flame);
+          const isAlert = isGasCritical || isFlameAlert;
+
+          // Build className to clearly reflect alert vs selected state
+          const baseClasses =
+            'w-full rounded-xl border px-5 py-5 text-left shadow-[0_2px_6px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_6px_16px_rgba(0,0,0,0.08)]';
+          const selectedClasses = selectedId === device.deviceId
+            ? (isAlert ? 'ring-2 ring-red-100 border-red-400' : 'border-blue-300 ring-2 ring-blue-100')
+            : (isAlert ? 'border-red-300 hover:border-red-400' : 'border-slate-200 hover:border-slate-300');
+          const bgClass = isAlert ? 'bg-red-50' : 'bg-white';
+
+          return (
+            <button
+              key={device.deviceId}
+              onClick={() => onSelect(device.deviceId)}
+              className={`${baseClasses} ${selectedClasses} ${bgClass}`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className={`text-base font-bold ${isAlert ? 'text-red-800' : 'text-slate-900'}`}>{device.deviceId}</span>
+                <span className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${mq2Badge(device.mq2raw)}`}>
+                  {device.mq2raw ?? '–'}
+                </span>
+              </div>
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                {device.updated ? new Date(device.updated).toLocaleTimeString() : 'No data'}
+              </p>
+            </button>
+          );
+        })
       )}
     </div>
   );
@@ -101,24 +112,46 @@ function DeviceDetail({ device }) {
     );
   }
 
-  const { temp, humidity, mq2raw, mq2voltage, flame, gps } = device;
+  const { temp, humidity, mq2raw, mq2voltage, flame, gps, pump } = device;
   const hasFix = gps?.status === 'fix' && gps.latitude != null && gps.longitude != null;
+
+  // Sama kriteria seperti card: alert jika flame atau mq2raw > 2100
+  const mq2 = mq2raw ?? -Infinity;
+  const isGasCritical = mq2 > 2100;
+  const isFlameAlert = Boolean(flame);
+  const isAlert = isGasCritical || isFlameAlert;
+
+  // Jika backend kirimkan status pompa, normalisasi beberapa tipe (boolean / '1' / 1)
+  const pumpActive = pump === true || pump === '1' || pump === 1;
 
   return (
     <div className="space-y-8">
+      {isAlert && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-6 py-3 text-sm font-semibold text-red-800 flex items-center gap-3">
+          <span className="text-lg">🚨</span>
+          <div>
+            <div>Sistem penyiraman sedang menyala</div>
+            {pump !== undefined && (
+              <div className="mt-1 text-xs font-medium text-red-700">
+                Status pompa: {pumpActive ? 'ON' : 'OFF'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div>
         <h2 className="mb-6 text-sm font-bold uppercase tracking-[0.12em] text-slate-700">Sensor Readings</h2>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <SensorCard title="Temperature" value={temp} suffix="°C" icon="🌡️" />
-          <SensorCard title="Humidity" value={humidity} suffix="%" icon="💧" />
-          <SensorCard title="Gas Level" value={mq2raw} highlight icon="⚠️" />
-          <SensorCard title="Gas Voltage" value={mq2voltage} suffix="V" icon="⚡" />
-          <SensorCard title="Flame Status" value={flame ? 'ALERT' : 'Safe'} highlight={Boolean(flame)} icon="🔥" />
+          <SensorCard title="Temperature" value={temp} suffix="°C" />
+          <SensorCard title="Humidity" value={humidity} suffix="%" />
+          <SensorCard title="Gas Level" value={mq2raw} highlight />
+          <SensorCard title="Gas Voltage" value={mq2voltage} suffix="V" />
+          <SensorCard title="Flame Status" value={flame ? 'ALERT' : 'Safe'} highlight={Boolean(flame)} />
           <SensorCard
             title="GPS Lock"
             value={gps?.status === 'fix' ? 'Active' : 'Searching'}
             highlight={gps?.status === 'fix'}
-            icon="🛰️"
           />
         </div>
       </div>
