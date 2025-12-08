@@ -1,4 +1,4 @@
-# README.md - IoT Wildfire Monitoring System
+# Wildfire Monitoring System
 
 ## 1. Introduction
 
