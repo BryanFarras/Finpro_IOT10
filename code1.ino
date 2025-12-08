@@ -13,8 +13,8 @@
    Share a common ground across all modules.
 */  
 
-const char* ssid = "Oii"; 
-const char* password = "abshar27";
+const char* ssid = "Asususususus"; 
+const char* password = "hahahaha";
 const char* mqtt_server = "broker.emqx.io";
 const char* DEVICE_ID = "esp32-node-1";   // ganti per board
 const char* MQTT_BASE_TOPIC = "wokwi/project";
@@ -113,10 +113,13 @@ void processGPSStream() {
 }
 
 void readAndPublishDHT() {
-  // float h = dht.readHumidity();
-  // float t = dht.readTemperature();
-  const float h = 55.0f;
-  const float t = 27.5f;
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+
+  if (isnan(h) || isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
 
   Serial.print("Suhu: "); Serial.print(t);
   Serial.print(" *C, Kelembapan: "); Serial.println(h);
@@ -125,10 +128,8 @@ void readAndPublishDHT() {
 }
 
 void readAndPublishMQ2() {
-  // int gasRaw = analogRead(MQ2_PIN);
-  const int gasRaw = 1024;
-  // float gasVoltage = (static_cast<float>(gasRaw) / 4095.0f) * 3.3f;
-  const float gasVoltage = 1.65f;
+  int gasRaw = analogRead(MQ2_PIN);
+  float gasVoltage = (gasRaw / 4095.0) * 3.3;
 
   Serial.print("MQ-2 raw: "); Serial.print(gasRaw);
   Serial.print(" (~"); Serial.print(gasVoltage, 2); Serial.println(" V)");
@@ -137,8 +138,7 @@ void readAndPublishMQ2() {
 }
 
 void readAndPublishFlame() {
-  // bool flameDetected = (digitalRead(FLAME_PIN) == LOW);
-  const bool flameDetected = false;
+  bool flameDetected = (digitalRead(FLAME_PIN) == LOW);
 
   Serial.print("Flame detected: ");
   Serial.println(flameDetected ? "YES" : "NO");
@@ -146,19 +146,16 @@ void readAndPublishFlame() {
 }
 
 void readAndPublishGPS() {
-  // processGPSStream();
-  // bool gpsFix = gps.location.isValid();
-  const bool gpsFix = true;
+  processGPSStream();
+  bool gpsFix = gps.location.isValid();
   publishText("gps/status", gpsFix ? "fix" : "no-fix");
   if (!gpsFix) {
     Serial.println("GPS fix not available.");
     return;
   }
 
-  // double latitude = gps.location.lat();
-  // double longitude = gps.location.lng();
-  const double latitude = -6.200000;
-  const double longitude = 106.816666;
+  double latitude = gps.location.lat();
+  double longitude = gps.location.lng();
 
   Serial.print("GPS lat: "); Serial.print(latitude, 6);
   Serial.print(", lon: "); Serial.println(longitude, 6);
